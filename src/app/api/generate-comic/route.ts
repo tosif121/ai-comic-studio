@@ -148,7 +148,7 @@ async function withExponentialBackoff<T>(fn: () => Promise<T>, operationName: st
       return await fn();
     } catch (error) {
       lastError = error as Error;
-      console.warn(`⚠️ ${operationName} attempt ${attempt}/${CONFIG.MAX_RETRIES} failed:`, error.message);
+      console.warn(`⚠️ ${operationName} attempt ${attempt}/${CONFIG.MAX_RETRIES} failed:`,);
 
       if (attempt < CONFIG.MAX_RETRIES) {
         let delay = CONFIG.BASE_DELAY * Math.pow(2, attempt - 1);
