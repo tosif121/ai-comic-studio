@@ -441,7 +441,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
       w-full max-w-full`}
     >
       {/* Panel Image or Placeholder */}
-      {panel.imageUrl ? (
+      {panel?.imageUrl ? (
         <div className="relative w-full h-full">
           <Image
             src={panel.imageUrl}
