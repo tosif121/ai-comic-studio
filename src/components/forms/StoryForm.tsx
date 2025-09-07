@@ -121,7 +121,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
             );
 
             const narrationResults = await Promise.all(narrationPromises);
-            toast.loading('Adding voice narration...');
+            // toast.loading('Adding voice narration...');
 
             // Add audio to panels
             result.comic.panels = result.comic.panels.map((panel: any, index: number) => ({
