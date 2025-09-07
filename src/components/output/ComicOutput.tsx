@@ -444,7 +444,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
 
         audio.onerror = () => {
           toast.dismiss(loadingToast);
-          toast.error('Audio format not supported');
+          // toast.error('Audio format not supported');
           setIsPlaying(false);
           setCurrentAudio(null);
         };
@@ -614,10 +614,8 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="relative bg-black/40 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden"
+          className="relative bg-gradient-to-r from-purple-600/5 via-pink-600/10 to-cyan-600/5 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/5 via-pink-600/10 to-cyan-600/5" />
-
           {/* Header */}
           <div className="relative p-8 text-center border-b border-white/10">
             <motion.div

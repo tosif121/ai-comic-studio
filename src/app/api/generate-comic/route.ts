@@ -52,8 +52,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Story idea is required' }, { status: 400 });
     }
 
+    console.log(`🚀 Starting comic generation: "${storyIdea}" with ${panels} panels`);
+
     // Step 1: Generate story structure
-    console.log('Generating story structure...');
+    console.log('📝 Generating story structure...');
     const storyStructure = await generateStoryStructure({
       storyIdea,
       characterName,
@@ -64,7 +66,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Step 2: Generate panels with images
-    console.log('Generating comic panels...');
+    console.log('🎨 Generating comic panels with images...');
     const comicPanels = await generatePanelsWithImages(storyStructure, panels);
 
     const comic: ComicStory = {
@@ -74,13 +76,16 @@ export async function POST(request: NextRequest) {
       panels: comicPanels,
     };
 
+    const generationTime = Date.now() - startTime;
+    console.log(`✅ Comic generation completed in ${generationTime}ms`);
+
     return NextResponse.json({
       success: true,
       comic,
-      generationTime: Date.now() - startTime,
+      generationTime,
     });
   } catch (error: any) {
-    console.error('Comic generation error:', error);
+    console.error('❌ Comic generation error:', error);
     return NextResponse.json(
       {
         success: false,
@@ -90,6 +95,20 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Clean markdown code blocks from API response
+ * @param response - Raw response string
+ * @returns Cleaned JSON string
+ */
+function cleanJsonResponse(response: string): string {
+  let cleaned = response.trim();
+  // Remove ``````
+  cleaned = cleaned.replace(/``````$/, '');
+  // Remove ``````
+  cleaned = cleaned.replace(/``````$/, '');
+  return cleaned;
 }
 
 async function generateStoryStructure(input: Required<ComicRequest>) {
@@ -102,8 +121,8 @@ MOOD: ${input.mood}
 NUMBER OF PANELS: ${input.panels}
 CHARACTER TRAITS: ${input.characterTraits.join(', ') || 'determined, resourceful'}
 
+IMPORTANT: Respond with ONLY valid JSON, no markdown formatting, no code blocks, no additional text.
 Generate a JSON response with this exact structure:
-
 {
   "title": "Creative title for the comic",
   "character": {
@@ -126,15 +145,21 @@ Generate a JSON response with this exact structure:
   ]
 }`;
 
+  let response: string | undefined; // ✅ FIXED: Declare response outside try block
+
   try {
-    const response = await callGemini(prompt, 0.8);
-    let jsonStr = response.trim();
-    if (jsonStr.startsWith('```json')) {
-      jsonStr = jsonStr.replace(/``````$/, '');
-    }
-    return JSON.parse(jsonStr);
+    response = await callGemini(prompt, 0.8);
+    console.log('📝 Raw story structure response length:', response.length);
+
+    const cleanedResponse = cleanJsonResponse(response);
+    console.log('📝 Cleaned response sample:', cleanedResponse.substring(0, 200));
+
+    const parsed = JSON.parse(cleanedResponse);
+    console.log('✅ Story structure parsed successfully:', parsed.title);
+    return parsed;
   } catch (error) {
-    console.error('Failed to parse story structure:', error);
+    console.error('❌ Failed to parse story structure:', error);
+    console.error('Raw response sample:', response?.substring(0, 500) || 'No response');
     return createFallbackStructure(input);
   }
 }
@@ -157,6 +182,7 @@ STORY CONTEXT:
 - Action: ${panelOutline?.keyAction || 'story progression'}
 - Setting: ${panelOutline?.settingDescription || 'story scene'}
 
+IMPORTANT: Respond with ONLY valid JSON, no markdown formatting, no code blocks, no additional text.
 Generate JSON response:
 {
   "imageDescription": "Detailed visual description maintaining character consistency",
@@ -169,20 +195,23 @@ Generate JSON response:
 }`;
 
       const panelResponse = await callGemini(panelPrompt, 0.7);
-      let panelData;
+      console.log(`📝 Panel ${i + 1} text response length:`, panelResponse.length);
+
+      const cleanedResponse = cleanJsonResponse(panelResponse);
+      console.log(`📝 Panel ${i + 1} cleaned response sample:`, cleanedResponse.substring(0, 200));
+
+      let panelData: any;
 
       try {
-        let jsonStr = panelResponse.trim();
-        if (jsonStr.startsWith('```json')) {
-          jsonStr = jsonStr.replace(/``````$/, '');
-        }
-        panelData = JSON.parse(jsonStr);
+        panelData = JSON.parse(cleanedResponse);
+        console.log(`✅ Panel ${i + 1} parsed successfully`);
       } catch (parseError) {
-        console.error(`Failed to parse panel ${i + 1}:`, parseError);
+        console.error(`❌ Failed to parse panel ${i + 1}:`, parseError);
+        console.error(`Raw panel response sample:`, panelResponse.substring(0, 500));
         panelData = createFallbackPanel(i + 1, panelOutline, storyStructure);
       }
 
-      // Try to generate image (may not work without proper image model)
+      // Generate image (may not work without proper image model)
       let imageUrl = null;
       try {
         const imagePrompt = `Generate a detailed comic panel image: ${panelData.imageDescription}
@@ -251,12 +280,15 @@ async function callGemini(prompt: string, temperature: number = 0.7): Promise<st
   );
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Gemini API error: ${response.status} - ${response.statusText}`, errorText);
     throw new Error(`Gemini API error: ${response.status} - ${response.statusText}`);
   }
 
   const result = await response.json();
 
   if (!result.candidates?.[0]?.content?.parts?.[0]?.text) {
+    console.error('Invalid Gemini response structure:', result);
     throw new Error('No content generated by Gemini');
   }
 
@@ -264,7 +296,6 @@ async function callGemini(prompt: string, temperature: number = 0.7): Promise<st
 }
 
 async function callGeminiForImage(prompt: string, temperature: number = 0.7): Promise<string> {
-  // Try with image generation model
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
@@ -283,16 +314,18 @@ async function callGeminiForImage(prompt: string, temperature: number = 0.7): Pr
   );
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Gemini Image API error: ${response.status} - ${response.statusText}`, errorText);
     throw new Error(`Gemini Image API error: ${response.status} - ${response.statusText}`);
   }
 
   const result = await response.json();
 
   if (!result.candidates?.[0]?.content?.parts) {
+    console.error('Invalid Gemini Image response structure:', result);
     throw new Error('No content generated by Gemini Image API');
   }
 
-  // Return the full result for image extraction
   return JSON.stringify(result);
 }
 
@@ -314,6 +347,7 @@ function extractImageFromResponse(responseStr: string): string | null {
 }
 
 function createFallbackStructure(input: Required<ComicRequest>) {
+  console.log('⚠️ Using fallback story structure');
   const panelOutlines = [];
 
   for (let i = 0; i < input.panels; i++) {
@@ -360,13 +394,14 @@ function createFallbackStructure(input: Required<ComicRequest>) {
 }
 
 function createFallbackPanel(panelId: number, outline: any, storyStructure: any): ComicPanel {
+  console.log(`⚠️ Using fallback panel data for panel ${panelId}`);
   return {
     id: panelId,
     imageDescription: `Panel ${panelId}: ${storyStructure.character.name} in ${
       outline?.settingDescription || 'the scene'
     }`,
-    dialogue: [`Panel ${panelId} dialogue here`],
-    narration: outline?.keyAction || `Panel ${panelId} narration`,
+    dialogue: [`Panel ${panelId} dialogue`],
+    narration: outline?.keyAction || `Story continues in panel ${panelId}`,
     characterEmotions: outline?.characterState || 'determined',
     sceneAction: outline?.keyAction || 'story progression',
     visualElements: ['consistent character design', 'engaging composition'],
