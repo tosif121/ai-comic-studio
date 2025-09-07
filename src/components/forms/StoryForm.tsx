@@ -109,7 +109,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
 
       if (result.success) {
         toast.dismiss(loadingToast);
-        
+
         // Generate narration if requested
         if (formData.generateNarration) {
           toast.loading('Adding voice narration...');
@@ -122,7 +122,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
             );
 
             const narrationResults = await Promise.all(narrationPromises);
-            
+
             // Add audio to panels
             result.comic.panels = result.comic.panels.map((panel: any, index: number) => ({
               ...panel,
@@ -137,7 +137,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
 
         onStoryGenerated(result);
         toast.success(`Comic generated with ${result.comic.panels.length} panels in ${result.generationTime}ms!`);
-        
+
         // Save successful story
         saveStoryIdea();
       } else {
@@ -169,7 +169,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
 
         recognition.onstart = () => {
           setIsRecording(true);
-          toast.success('🎤 Voice recording started! Speak your story idea...');
+          toast.success('Voice recording started! Speak your story idea...');
         };
 
         recognition.onresult = (event: any) => {
@@ -210,12 +210,12 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
     const updated = [newStory, ...savedStories.slice(0, 9)]; // Keep last 10
     setSavedStories(updated);
     localStorage.setItem('savedStoryIdeas', JSON.stringify(updated));
-    toast.success('Story idea saved! 📝');
+    toast.success('Story idea saved!');
   };
 
   const loadStoryIdea = (story: StoryFormData) => {
     setFormData(story);
-    toast.success('Story idea loaded! ✨');
+    toast.success('Story idea loaded!');
   };
 
   const resetForm = () => {
@@ -229,7 +229,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
       generateNarration: false,
       voiceType: 'narrative',
     });
-    toast.success('Form reset! 🔄');
+    toast.success('Form reset!');
   };
 
   const addCharacterTrait = (trait: string) => {
@@ -239,15 +239,18 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
   };
 
   const removeCharacterTrait = (trait: string) => {
-    handleInputChange('characterTraits', formData.characterTraits.filter(t => t !== trait));
+    handleInputChange(
+      'characterTraits',
+      formData.characterTraits.filter((t) => t !== trait)
+    );
   };
 
   const storyIdeas = [
-    "A time-traveling chef discovers recipes from the future",
-    "A shy librarian gains superpowers from magical books",
+    'A time-traveling chef discovers recipes from the future',
+    'A shy librarian gains superpowers from magical books',
     "Twin siblings swap bodies and must live each other's lives",
-    "A robot learns emotions by working in a flower shop",
-    "An astronaut befriends aliens who communicate through colors",
+    'A robot learns emotions by working in a flower shop',
+    'An astronaut befriends aliens who communicate through colors',
   ];
 
   const artStyles = [
@@ -274,48 +277,46 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
   const commonTraits = ['brave', 'funny', 'smart', 'kind', 'mysterious', 'strong', 'creative', 'loyal'];
 
   return (
-    <div className="container mx-auto px-6 py-16">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-32 sm:pb-16">
       <div className="max-w-6xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="relative bg-black/40 backdrop-blur-2xl border border-white/10 rounded-3xl overflow-hidden p-8"
+          className="relative bg-gradient-to-br from-purple-600/10 to-pink-600/10 text-foreground border border-border rounded-3xl shadow-lg overflow-hidden p-6 sm:p-8"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 via-pink-600/5 to-cyan-600/10" />
-
           {/* Header */}
-          <div className="relative text-center mb-12">
+          <div className="relative text-center mb-10 sm:mb-12">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="inline-flex items-center space-x-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 backdrop-blur-sm border border-purple-500/30 rounded-full px-6 py-3 mb-6"
+              className="inline-flex items-center space-x-2 bg-primary/10 border border-primary/30 rounded-full px-4 sm:px-6 py-2 sm:py-3 mb-4 sm:mb-6"
             >
-              <Wand2 className="w-5 h-5 text-purple-400" />
-              <span className="text-sm font-medium text-purple-300">AI Comic Generator</span>
+              <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+              <span className="text-xs sm:text-sm font-medium">AI Comic Generator</span>
             </motion.div>
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="text-4xl md:text-5xl font-bold text-white mb-4"
+              className="text-2xl sm:text-3xl md:text-5xl font-bold mb-3 sm:mb-4"
             >
               Bring Your Story to{' '}
-              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">Life</span>
+              <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Life</span>
             </motion.h2>
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
-              className="text-xl text-gray-300 max-w-2xl mx-auto"
+              className="text-sm sm:text-base md:text-lg text-muted-foreground max-w-2xl mx-auto"
             >
-              Tell us your story idea and watch AI transform it into a stunning comic with voice narration
+              Tell us your story idea and watch AI transform it into a stunning comic
+              {` `}with voice narration
             </motion.p>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8 relative">
-            {/* Story Input Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 relative">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -345,7 +346,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
                     {isRecording ? <VolumeX className="w-5 h-5 text-white" /> : <Mic className="w-5 h-5 text-white" />}
                   </button>
                 </div>
-                
+
                 {/* Story Idea Suggestions */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -411,43 +412,55 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
                     ))}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {commonTraits.filter(trait => !formData.characterTraits.includes(trait)).map((trait) => (
-                      <button
-                        key={trait}
-                        onClick={() => addCharacterTrait(trait)}
-                        className="text-xs bg-white/5 hover:bg-purple-600/20 border border-white/10 hover:border-purple-400/30 text-gray-300 hover:text-purple-300 px-2 py-1 rounded-full transition-all"
-                      >
-                        + {trait}
-                      </button>
-                    ))}
+                    {commonTraits
+                      .filter((trait) => !formData.characterTraits.includes(trait))
+                      .map((trait) => (
+                        <button
+                          key={trait}
+                          onClick={() => addCharacterTrait(trait)}
+                          className="text-xs bg-white/5 hover:bg-purple-600/20 border border-white/10 hover:border-purple-400/30 text-gray-300 hover:text-purple-300 px-2 py-1 rounded-full transition-all"
+                        >
+                          + {trait}
+                        </button>
+                      ))}
                   </div>
                 </div>
               </div>
 
               {/* Panel Count */}
-              <div className="space-y-4">
-                <label className="text-lg font-semibold text-white flex items-center gap-2">
-                  <Film className="w-5 h-5 text-purple-400" />
+              <div className="space-y-3 sm:space-y-4">
+                {/* Label */}
+                <label className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-2">
+                  <Film className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                   Number of Panels
                 </label>
-                <div className="flex items-center space-x-4">
+
+                {/* Control Row */}
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                  {/* Minus Button */}
                   <button
                     onClick={() => handleInputChange('panels', Math.max(2, formData.panels - 1))}
-                    className="w-10 h-10 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-white transition-all"
+                    className="w-9 h-9 sm:w-10 sm:h-10 bg-card hover:bg-accent/10 border border-border rounded-full flex items-center justify-center text-foreground transition-all"
                   >
                     <Minus className="w-4 h-4" />
                   </button>
-                  <div className="bg-white/5 border border-white/20 rounded-2xl px-6 py-3 min-w-[100px] text-center">
-                    <span className="text-2xl font-bold text-white">{formData.panels}</span>
-                    <div className="text-xs text-gray-400">panels</div>
+
+                  {/* Value Display */}
+                  <div className="bg-card border border-border rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 min-w-[80px] sm:min-w-[100px] text-center">
+                    <span className="text-xl sm:text-2xl font-bold text-foreground">{formData.panels}</span>
+                    <div className="text-xs text-muted-foreground">panels</div>
                   </div>
+
+                  {/* Plus Button */}
                   <button
                     onClick={() => handleInputChange('panels', Math.min(12, formData.panels + 1))}
-                    className="w-10 h-10 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-white transition-all"
+                    className="w-9 h-9 sm:w-10 sm:h-10 bg-card hover:bg-accent/10 border border-border rounded-full flex items-center justify-center text-foreground transition-all"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
-                  <span className="text-sm text-gray-400">2-12 panels recommended</span>
+
+                  {/* Hint */}
+                  <span className="text-xs sm:text-sm text-muted-foreground">2–12 panels recommended</span>
                 </div>
               </div>
             </motion.div>
@@ -530,7 +543,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
                     />
                     <span className="text-white">Add voice narration</span>
                   </label>
-                  
+
                   {formData.generateNarration && (
                     <div className="space-y-2">
                       {voiceTypes.map((voice) => (
@@ -599,32 +612,51 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.2 }}
-            className="mt-12 text-center relative"
+            className="mt-8 sm:mt-12 text-center relative"
           >
+            {/* Generate Button */}
             <button
               onClick={generateStory}
               disabled={isGenerating || !formData.storyIdea.trim()}
-              className="bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 hover:from-purple-700 hover:via-pink-700 hover:to-cyan-700 text-white text-xl font-bold px-12 py-6 rounded-2xl shadow-2xl hover:shadow-purple-500/40 transform hover:scale-105 transition-all duration-300 group relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="relative group overflow-hidden 
+               bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 
+               hover:from-purple-700 hover:via-pink-700 hover:to-cyan-700
+               text-white font-bold text-lg sm:text-xl 
+               px-8 sm:px-12 py-4 sm:py-6 
+               rounded-2xl shadow-xl hover:shadow-purple-500/40
+               transform hover:scale-105 transition-all duration-300
+               disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
+              {/* Shimmer effect */}
               <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12" />
-              <span className="relative flex items-center space-x-3 justify-center">
+
+              {/* Button Content */}
+              <span className="relative flex items-center justify-center gap-2 sm:gap-3">
                 {isGenerating ? (
                   <>
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" />
-                    <span>Creating Your {formData.panels}-Panel Comic...</span>
+                    <div className="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-b-2 border-white" />
+                    <span className="text-sm sm:text-base">Creating your {formData.panels}-panel comic...</span>
                   </>
                 ) : (
                   <>
-                    <Wand2 className="w-6 h-6" />
-                    <span>Generate {formData.panels}-Panel Comic{formData.generateNarration ? ' + Audio' : ''}</span>
-                    <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                    <Wand2 className="w-5 h-5 sm:w-6 sm:h-6" />
+                    <span>
+                      Generate {formData.panels}-Panel Comic
+                      {formData.generateNarration ? ' + Audio' : ''}
+                    </span>
+                    <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
               </span>
             </button>
 
+            {/* Loader text + bouncing dots */}
             {isGenerating && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 space-y-3">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 sm:mt-6 space-y-2 sm:space-y-3"
+              >
                 <div className="flex justify-center space-x-2">
                   {[0, 1, 2].map((i) => (
                     <motion.div
@@ -632,12 +664,12 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
                       className={`w-2 h-2 rounded-full ${
                         i === 0 ? 'bg-purple-400' : i === 1 ? 'bg-pink-400' : 'bg-cyan-400'
                       }`}
-                      animate={{ y: [0, -10, 0] }}
+                      animate={{ y: [0, -8, 0] }}
                       transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.2 }}
                     />
                   ))}
                 </div>
-                <p className="text-gray-300 text-sm">
+                <p className="text-xs sm:text-sm text-muted-foreground">
                   AI is crafting your {formData.panels}-panel story with consistent characters
                   {formData.generateNarration && ' and voice narration'}...
                 </p>

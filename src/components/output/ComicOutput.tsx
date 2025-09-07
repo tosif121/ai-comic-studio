@@ -151,7 +151,6 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
     }
   };
 
-  // ✅ FIXED: Sequential processing to respect ElevenLabs rate limits
   const addVoiceNarration = async () => {
     setIsGeneratingNarration(true);
     let loadingToast = toast.loading('Starting voice narration generation...');
@@ -160,22 +159,18 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
       const updatedPanels = [...panels];
       let successCount = 0;
 
-      // ✅ Process panels ONE BY ONE to avoid 429 errors
       for (let index = 0; index < panels.length; index++) {
         const panel = panels[index];
         const text = `${panel.narration} ${panel.dialogue.join(' ')}`.trim();
 
         if (!text) {
-          console.log(`Skipping panel ${index + 1} - no text content`);
           continue;
         }
 
         try {
           // Update progress toast
           toast.dismiss(loadingToast);
-          loadingToast = toast.loading(`🎙️ Generating voice for panel ${index + 1} of ${panels.length}...`);
-
-          console.log(`Generating narration for panel ${index + 1}:`, text.substring(0, 100));
+          loadingToast = toast.loading(`Generating voice for panel ${index + 1} of ${panels.length}...`);
 
           const response = await axios.post(
             '/api/generate-narration',
@@ -195,14 +190,11 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
             successCount++;
 
             toast.dismiss(loadingToast);
-            loadingToast = toast.success(`✅ Panel ${index + 1} voice ready!`, { duration: 1000 });
-
-            console.log(`Panel ${index + 1} narration generated successfully`);
+            loadingToast = toast.success(`Panel ${index + 1} voice ready!`, { duration: 1000 });
           } else {
             throw new Error(response.data.error || 'Unknown error');
           }
 
-          // ✅ Wait 2 seconds between requests to respect rate limits
           if (index < panels.length - 1) {
             await new Promise((resolve) => setTimeout(resolve, 2000));
           }
@@ -211,13 +203,11 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
 
           const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
           toast.dismiss(loadingToast);
-          loadingToast = toast.error(`❌ Panel ${index + 1} failed: ${errorMessage}`, { duration: 2000 });
+          loadingToast = toast.error(`Panel ${index + 1} failed: ${errorMessage}`, { duration: 2000 });
 
-          // ✅ If rate limited, wait longer before next attempt
           if (error?.response?.status === 429) {
-            console.log('Rate limited, waiting 5 seconds...');
             toast.dismiss(loadingToast);
-            loadingToast = toast.loading('⏳ Rate limited - waiting 5 seconds...');
+            loadingToast = toast.loading('Rate limited - waiting 5 seconds...');
             await new Promise((resolve) => setTimeout(resolve, 5000));
           } else {
             // Wait 1 second before next attempt for other errors
@@ -226,7 +216,6 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
         }
       }
 
-      // ✅ Force component re-render with updated panels
       comic.comic.panels = updatedPanels;
 
       toast.dismiss(loadingToast);
@@ -309,67 +298,6 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
     }
   };
 
-  const generateAllNarration = async () => {
-    if (!isProUser) {
-      onUpgrade();
-      return;
-    }
-
-    setIsGeneratingNarration(true);
-    const loadingToast = toast.loading('Generating narration for all panels...');
-
-    try {
-      const narrationPromises = panels.map(async (panel, index) => {
-        const text = `${panel.narration} ${panel.dialogue.join(' ')}`.trim();
-        if (!text) return null;
-
-        try {
-          const response = await axios.post('/api/generate-narration', {
-            text,
-            voiceType: 'narrative',
-            speed: 1.0,
-          });
-
-          return response.data.success
-            ? {
-                index,
-                audioUrl: response.data.audioUrl,
-                duration: response.data.duration,
-              }
-            : null;
-        } catch (error) {
-          console.error(`Failed to generate narration for panel ${index + 1}:`, error);
-          return null;
-        }
-      });
-
-      const results = await Promise.all(narrationPromises);
-
-      // Update panels with audio data
-      let successCount = 0;
-      results.forEach((result) => {
-        if (result && result.index !== undefined) {
-          panels[result.index].audioUrl = result.audioUrl;
-          panels[result.index].audioDuration = result.duration;
-          successCount++;
-        }
-      });
-
-      toast.dismiss(loadingToast);
-      if (successCount > 0) {
-        toast.success(`🎵 Narration generated for ${successCount} panels!`);
-      } else {
-        toast.error('Failed to generate narration');
-      }
-    } catch (error) {
-      toast.dismiss(loadingToast);
-      console.error('Narration generation failed:', error);
-      toast.error('Failed to generate narration');
-    } finally {
-      setIsGeneratingNarration(false);
-    }
-  };
-
   const generateVideo = async () => {
     if (!isProUser) {
       onUpgrade();
@@ -393,7 +321,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
       }
     } catch (error) {
       console.error('Video generation failed:', error);
-      toast.error('Failed to generate video');
+      toast.error('Failed to generate video currently not available');
     } finally {
       setIsGeneratingVideo(false);
     }
@@ -506,9 +434,11 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.3 }}
-      className={`relative bg-gradient-to-br from-purple-600/10 to-pink-600/10 rounded-2xl border border-white/10 overflow-hidden group ${
-        isFullscreen ? 'aspect-video' : 'aspect-[4/3]'
-      }`}
+      className={`relative bg-gradient-to-br from-purple-600/10 to-pink-600/10 
+      rounded-xl sm:rounded-2xl 
+      border border-white/10 overflow-hidden group
+      ${isFullscreen ? 'aspect-video' : 'aspect-[3/4] sm:aspect-[4/3] lg:aspect-video'}
+      w-full max-w-full`}
     >
       {/* Panel Image or Placeholder */}
       {panel.imageUrl ? (
@@ -519,18 +449,16 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
             fill
             className="object-cover"
             unoptimized
-            onError={() => {
-              console.error('Image failed to load');
-            }}
+            onError={() => console.error('Image failed to load')}
           />
         </div>
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-600/20 to-pink-600/20">
-          <div className="text-center space-y-4 p-8">
-            <FileImage className="w-16 h-16 text-white/50 mx-auto" />
+          <div className="text-center space-y-4 p-4 sm:p-8">
+            <FileImage className="w-10 h-10 sm:w-16 sm:h-16 text-white/50 mx-auto" />
             <div className="space-y-2">
-              <p className="text-white/60 font-medium">Panel {index + 1}</p>
-              <p className="text-sm text-white/40 max-w-md leading-relaxed">{panel?.imageDescription}</p>
+              <p className="text-white/60 font-medium text-sm sm:text-base">Panel {index + 1}</p>
+              <p className="text-xs sm:text-sm text-white/40 max-w-md leading-relaxed">{panel?.imageDescription}</p>
             </div>
           </div>
         </div>
@@ -542,58 +470,66 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
           <button
             onClick={prevPanel}
             disabled={index === 0}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-black/80 hover:scale-110 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 
+            w-8 h-8 sm:w-12 sm:h-12 bg-black/60 backdrop-blur-sm 
+            rounded-full flex items-center justify-center 
+            opacity-0 group-hover:opacity-100 transition-all duration-300 
+            hover:bg-black/80 hover:scale-110 disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <ArrowLeft className="w-6 h-6 text-white" />
+            <ArrowLeft className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
           </button>
 
           <button
             onClick={nextPanel}
             disabled={index === panels.length - 1}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-black/80 hover:scale-110 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 
+            w-8 h-8 sm:w-12 sm:h-12 bg-black/60 backdrop-blur-sm 
+            rounded-full flex items-center justify-center 
+            opacity-0 group-hover:opacity-100 transition-all duration-300 
+            hover:bg-black/80 hover:scale-110 disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <ArrowRight className="w-6 h-6 text-white" />
+            <ArrowRight className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
           </button>
         </>
       )}
 
       {/* Panel Controls - Top Right */}
-      <div className="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+      <div className="absolute top-2 sm:top-4 right-2 sm:right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
         {isProUser && (
           <button
             onClick={() => regeneratePanel(index)}
-            className="w-8 h-8 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/80 transition-all"
+            className="w-7 h-7 sm:w-8 sm:h-8 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/80 transition-all"
           >
             <RefreshCw className="w-4 h-4 text-white" />
           </button>
         )}
         <button
           onClick={toggleFullscreen}
-          className="w-8 h-8 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/80 transition-all"
+          className="w-7 h-7 sm:w-8 sm:h-8 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/80 transition-all"
         >
           <Maximize2 className="w-4 h-4 text-white" />
         </button>
       </div>
 
       {/* Panel Indicator - Bottom Right */}
-      <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-sm rounded-full px-3 py-1">
-        <span className="text-white text-sm font-medium">
+      <div className="absolute bottom-2 sm:bottom-4 right-2 sm:right-4 bg-black/60 backdrop-blur-sm rounded-full px-2 py-0.5 sm:px-3 sm:py-1">
+        <span className="text-white text-xs sm:text-sm font-medium">
           {index + 1} / {panels.length}
         </span>
       </div>
 
       {/* Audio Indicator - Bottom Left */}
       {panel.audioUrl && (
-        <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm rounded-full p-2">
-          <Volume2 className="w-4 h-4 text-green-400" />
+        <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 bg-black/60 backdrop-blur-sm rounded-full p-1.5 sm:p-2">
+          <Volume2 className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
         </div>
       )}
     </motion.div>
   );
 
   return (
-    <div className="container mx-auto px-6 py-16">
-      <div className="max-w-7xl mx-auto">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-32 sm:pb-16">
+      <div className="max-w-6xl mx-auto">
         {/* Video Section */}
         {videoUrl && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
@@ -628,8 +564,8 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
               <span className="text-sm font-medium text-green-300">Comic Ready!</span>
             </motion.div>
 
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-2">{story.title}</h2>
-            <p className="text-gray-400 text-lg max-w-2xl mx-auto">{story.storyArc}</p>
+            <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-white mb-2 break-words">{story.title}</h2>
+            <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto px-2">{story.storyArc}</p>
 
             {/* Character Info Toggle */}
             <button
@@ -678,8 +614,8 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
 
           {/* Reading Mode Selector */}
           <div className="p-6 border-b border-white/10">
-            <div className="flex items-center justify-center space-x-4">
-              <span className="text-sm text-gray-400">Reading Mode:</span>
+            <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-center">
+              <span className="text-xs sm:text-sm text-gray-400 w-full sm:w-auto">Reading Mode:</span>
               {[
                 { id: 'single', label: 'Single Panel', icon: Eye },
                 { id: 'grid', label: 'Grid View', icon: Layers },
@@ -688,14 +624,14 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
                 <button
                   key={mode.id}
                   onClick={() => setReadingMode(mode.id as any)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-all ${
+                  className={`flex items-center space-x-2 px-3 sm:px-4 py-2 rounded-xl text-sm transition-all ${
                     readingMode === mode.id
                       ? 'bg-purple-600/20 text-purple-300 border border-purple-500/30'
                       : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300 border border-white/10'
                   }`}
                 >
                   <mode.icon className="w-4 h-4" />
-                  <span className="text-sm">{mode.label}</span>
+                  <span className="hidden sm:inline">{mode.label}</span>
                 </button>
               ))}
             </div>
@@ -742,7 +678,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
 
                 {/* Thumbnail Navigation */}
                 {panels.length > 1 && (
-                  <div className="flex space-x-3 overflow-x-auto p-2">
+                  <div className="flex space-x-2 sm:space-x-3 overflow-x-auto p-2 scrollbar-thin">
                     {panels.map((panel, index) => (
                       <button
                         key={panel.id}
@@ -765,7 +701,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
             )}
 
             {readingMode === 'grid' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {panels.map((panel, index) => (
                   <div key={panel.id} className="space-y-4">
                     {renderPanelContent(panel, index)}
@@ -787,7 +723,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
             )}
 
             {readingMode === 'story' && (
-              <div className="space-y-8 max-w-4xl mx-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-center">
                 {panels.map((panel, index) => (
                   <motion.div
                     key={panel.id}
@@ -832,45 +768,49 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
 
           {/* Playback Controls */}
           {readingMode === 'single' && (
-            <div className="px-8 py-4 border-t border-white/10">
-              <div className="flex items-center justify-center space-x-4">
+            <div className="px-4 sm:px-6 md:px-8 py-3 sm:py-4 border-t border-white/10">
+              <div className="flex items-center justify-center space-x-2 sm:space-x-4">
                 <button
                   onClick={() => setCurrentPanel(0)}
                   disabled={currentPanel === 0}
-                  className="w-10 h-10 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-30"
+                  className="w-8 h-8 sm:w-10 sm:h-10 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-30"
                 >
-                  <SkipBack className="w-5 h-5" />
+                  <SkipBack className="w-4 sm:w-5 h-4 sm:h-5" />
                 </button>
 
                 <button
                   onClick={prevPanel}
                   disabled={currentPanel === 0}
-                  className="w-12 h-12 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-30"
+                  className="w-10 h-10 sm:w-12 sm:h-12 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-30"
                 >
-                  <ArrowLeft className="w-6 h-6" />
+                  <ArrowLeft className="w-5 sm:w-6 h-5 sm:h-6" />
                 </button>
 
                 <button
                   onClick={toggleAutoPlay}
-                  className="w-14 h-14 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center text-white transition-all"
+                  className="w-12 h-12 sm:w-14 sm:h-14 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center text-white transition-all"
                 >
-                  {isAutoPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7" />}
+                  {isAutoPlaying ? (
+                    <Pause className="w-6 sm:w-7 h-6 sm:h-7" />
+                  ) : (
+                    <Play className="w-6 sm:w-7 h-6 sm:h-7" />
+                  )}
                 </button>
 
                 <button
                   onClick={nextPanel}
                   disabled={currentPanel === panels.length - 1}
-                  className="w-12 h-12 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-30"
+                  className="w-10 h-10 sm:w-12 sm:h-12 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-30"
                 >
-                  <ArrowRight className="w-6 h-6" />
+                  <ArrowRight className="w-5 sm:w-6 h-5 sm:h-6" />
                 </button>
 
                 <button
                   onClick={() => setCurrentPanel(panels.length - 1)}
                   disabled={currentPanel === panels.length - 1}
-                  className="w-10 h-10 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-30"
+                  className="w-8 h-8 sm:w-10 sm:h-10 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-30"
                 >
-                  <SkipForward className="w-5 h-5" />
+                  <SkipForward className="w-4 sm:w-5 h-4 sm:h-5" />
                 </button>
               </div>
             </div>
@@ -878,8 +818,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
 
           {/* Action Buttons */}
           <div className="p-8 border-t border-white/10">
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              {/* ✅ Add Voice Narration Button - Only show if NO panels have audio */}
+            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-4">
               {!panels.some((p) => p.audioUrl) && (
                 <motion.button
                   onClick={addVoiceNarration}
@@ -904,7 +843,6 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
                 </motion.button>
               )}
 
-              {/* ✅ Current Panel Audio Toggle - Only show if current panel has audio */}
               {panels[currentPanel]?.audioUrl && (
                 <motion.button
                   onClick={togglePanelAudio}
@@ -936,7 +874,6 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
                 </motion.button>
               )}
 
-              {/* ✅ FIXED: Download Button */}
               <motion.button
                 onClick={handleDownload}
                 disabled={isDownloading}
@@ -971,10 +908,8 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
                 <span>Copy Story</span>
               </motion.button>
 
-              {/* ✅ FIXED: Create Another Button */}
               <motion.button
                 onClick={() => {
-                  console.log('Create Another clicked');
                   onCreateAnother();
                 }}
                 whileHover={{ scale: 1.05 }}
@@ -989,7 +924,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
 
           {/* Enhanced Stats Section */}
           <div className="p-8 border-t border-white/10">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 sm:gap-6">
               {[
                 {
                   label: 'Panels',
@@ -1048,44 +983,17 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
 
           {/* Pro Upgrade CTA */}
           {!isProUser && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="m-8 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border-purple-500/30 backdrop-blur-sm rounded-2xl p-6 text-center border"
-            >
-              <Crown className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-              <h3 className="text-2xl font-bold text-white mb-2">Unlock Pro Features</h3>
-              <p className="text-gray-300 mb-6 max-w-md mx-auto">
-                Get high-resolution downloads, unlimited comics, video generation, voice narration, and exclusive art
-                styles
-              </p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-sm">
-                <div className="bg-white/5 rounded-xl p-3">
-                  <Download className="w-6 h-6 text-purple-400 mx-auto mb-2" />
-                  <div className="text-white font-medium">PDF Downloads</div>
-                </div>
-                <div className="bg-white/5 rounded-xl p-3">
-                  <Video className="w-6 h-6 text-pink-400 mx-auto mb-2" />
-                  <div className="text-white font-medium">Video Generation</div>
-                </div>
-                <div className="bg-white/5 rounded-xl p-3">
-                  <Volume2 className="w-6 h-6 text-green-400 mx-auto mb-2" />
-                  <div className="text-white font-medium">Voice Narration</div>
-                </div>
-                <div className="bg-white/5 rounded-xl p-3">
-                  <RefreshCw className="w-6 h-6 text-cyan-400 mx-auto mb-2" />
-                  <div className="text-white font-medium">Panel Regeneration</div>
-                </div>
-              </div>
+            <div className="flex justify-center my-8">
               <button
                 onClick={onUpgrade}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-8 py-3 rounded-2xl shadow-lg hover:shadow-purple-500/25 transition-all duration-300 hover:scale-105"
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700
+                  text-white font-semibold px-6 py-3 rounded-2xl shadow-lg hover:shadow-purple-500/25
+                  transition-all duration-300 hover:scale-105 flex items-center"
               >
-                <Crown className="w-5 h-5 inline mr-2" />
-                Upgrade to Pro
+                <span className="mr-2">Upgrade to Pro</span>
+                <Crown className="w-4 h-4 text-yellow-400" />
               </button>
-            </motion.div>
+            </div>
           )}
         </motion.div>
 

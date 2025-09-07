@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Manrope } from 'next/font/google';
+import { Fredoka } from 'next/font/google';
 import dynamic from 'next/dynamic';
 import { Toaster } from 'react-hot-toast';
 import { AppProvider } from '@/context/AppContext';
@@ -19,12 +19,12 @@ export const metadata: Metadata = {
   },
 };
 
-const manrope = Manrope({
-  weight: ['300', '400', '500', '600', '700', '800'],
+const fredoka = Fredoka({
+  weight: ['300', '400', '500', '600', '700'],
   style: ['normal'],
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-manrope',
+  variable: '--font-fredoka',
 });
 
 export default function RootLayout({
@@ -33,13 +33,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={manrope.variable}>
+    <html lang="en" className={fredoka.variable}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <link rel="icon" href="/favicon.ico" />
         <meta name="theme-color" content="#7c3aed" />
       </head>
-      <body className="antialiased bg-gradient-to-br from-slate-950 via-purple-950/50 to-slate-950 scroll-smooth font-manrope overflow-x-hidden">
+      <body className="antialiased bg-gradient-to-br from-slate-950 via-purple-950/50 to-slate-950 scroll-smooth font-fredoka overflow-x-hidden">
         <AppProvider>
           <Layout>
             <Toaster

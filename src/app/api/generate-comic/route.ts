@@ -52,10 +52,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Story idea is required' }, { status: 400 });
     }
 
-    console.log(`🚀 Starting comic generation: "${storyIdea}" with ${panels} panels`);
-
     // Step 1: Generate story structure
-    console.log('📝 Generating story structure...');
     const storyStructure = await generateStoryStructure({
       storyIdea,
       characterName,
@@ -66,7 +63,6 @@ export async function POST(request: NextRequest) {
     });
 
     // Step 2: Generate panels with images
-    console.log('🎨 Generating comic panels with images...');
     const comicPanels = await generatePanelsWithImages(storyStructure, panels);
 
     const comic: ComicStory = {
@@ -77,7 +73,6 @@ export async function POST(request: NextRequest) {
     };
 
     const generationTime = Date.now() - startTime;
-    console.log(`✅ Comic generation completed in ${generationTime}ms`);
 
     return NextResponse.json({
       success: true,
@@ -85,7 +80,7 @@ export async function POST(request: NextRequest) {
       generationTime,
     });
   } catch (error: any) {
-    console.error('❌ Comic generation error:', error);
+    console.error('Comic generation error:', error);
     return NextResponse.json(
       {
         success: false,
@@ -145,20 +140,17 @@ Generate a JSON response with this exact structure:
   ]
 }`;
 
-  let response: string | undefined; // ✅ FIXED: Declare response outside try block
+  let response: string | undefined; 
 
   try {
     response = await callGemini(prompt, 0.8);
-    console.log('📝 Raw story structure response length:', response.length);
 
     const cleanedResponse = cleanJsonResponse(response);
-    console.log('📝 Cleaned response sample:', cleanedResponse.substring(0, 200));
 
     const parsed = JSON.parse(cleanedResponse);
-    console.log('✅ Story structure parsed successfully:', parsed.title);
     return parsed;
   } catch (error) {
-    console.error('❌ Failed to parse story structure:', error);
+    console.error('❌Failed to parse story structure:', error);
     console.error('Raw response sample:', response?.substring(0, 500) || 'No response');
     return createFallbackStructure(input);
   }
@@ -186,7 +178,7 @@ IMPORTANT: Respond with ONLY valid JSON, no markdown formatting, no code blocks,
 Generate JSON response:
 {
   "imageDescription": "Detailed visual description maintaining character consistency",
-  "dialogue": ["Character speech - max 3 lines"],
+  "dialogue": ["Character speech - max 2 lines"],
   "narration": "Brief narrative text",
   "characterEmotions": "Character's emotional state",
   "sceneAction": "What's happening in this moment",
@@ -195,18 +187,15 @@ Generate JSON response:
 }`;
 
       const panelResponse = await callGemini(panelPrompt, 0.7);
-      console.log(`📝 Panel ${i + 1} text response length:`, panelResponse.length);
 
       const cleanedResponse = cleanJsonResponse(panelResponse);
-      console.log(`📝 Panel ${i + 1} cleaned response sample:`, cleanedResponse.substring(0, 200));
 
       let panelData: any;
 
       try {
         panelData = JSON.parse(cleanedResponse);
-        console.log(`✅ Panel ${i + 1} parsed successfully`);
       } catch (parseError) {
-        console.error(`❌ Failed to parse panel ${i + 1}:`, parseError);
+        console.error(`Failed to parse panel ${i + 1}:`, parseError);
         console.error(`Raw panel response sample:`, panelResponse.substring(0, 500));
         panelData = createFallbackPanel(i + 1, panelOutline, storyStructure);
       }
@@ -347,7 +336,6 @@ function extractImageFromResponse(responseStr: string): string | null {
 }
 
 function createFallbackStructure(input: Required<ComicRequest>) {
-  console.log('⚠️ Using fallback story structure');
   const panelOutlines = [];
 
   for (let i = 0; i < input.panels; i++) {
@@ -394,7 +382,6 @@ function createFallbackStructure(input: Required<ComicRequest>) {
 }
 
 function createFallbackPanel(panelId: number, outline: any, storyStructure: any): ComicPanel {
-  console.log(`⚠️ Using fallback panel data for panel ${panelId}`);
   return {
     id: panelId,
     imageDescription: `Panel ${panelId}: ${storyStructure.character.name} in ${

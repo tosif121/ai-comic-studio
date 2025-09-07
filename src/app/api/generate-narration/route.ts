@@ -118,10 +118,6 @@ export async function POST(request: NextRequest) {
     // Optimize text for speech
     const optimizedText = optimizeTextForSpeech(text);
 
-    console.log(
-      `Generating narration - Voice: ${finalVoiceId}, Type: ${voiceType}, Length: ${optimizedText.length} chars`
-    );
-
     // Make request to ElevenLabs
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${finalVoiceId}`, {
       method: 'POST',
@@ -182,7 +178,6 @@ export async function POST(request: NextRequest) {
     const estimatedDuration = calculateAudioDuration(optimizedText, speed);
 
     const processingTime = Date.now() - startTime;
-    console.log(`Narration generated successfully in ${processingTime}ms - Duration: ~${estimatedDuration}s`);
 
     return NextResponse.json({
       success: true,

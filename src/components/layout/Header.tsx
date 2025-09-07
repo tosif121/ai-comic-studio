@@ -19,9 +19,9 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, dailyUsage
     <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="z-50 backdrop-blur-2xl bg-white/5 border-b border-white/10 shadow-2xl sticky top-0"
+      className="z-50 backdrop-blur-2xl bg-white/5 border-b border-white/10 shadow-2xl fixed w-full top-0"
     >
-      <div className="container mx-auto px-6 py-4">
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <motion.div
@@ -36,17 +36,17 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, dailyUsage
                 whileHover={{ scale: 1.1 }}
                 transition={{ duration: 0.3 }}
               />
-              <div className="relative bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl p-3">
-                <Palette className="w-8 h-8 text-white" />
+              <div className="relative bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl p-2 sm:p-3">
+                <Palette className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               </div>
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent">
                 AI Comic Studio
               </h1>
-              <p className="text-xs md:text-sm text-gray-400 flex items-center gap-1">
+              <p className="text-[10px] sm:text-xs md:text-sm text-gray-400 flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
-                Powered by Nano Banana
+                Powered by Nano Banana & Elevenlabs
               </p>
             </div>
           </motion.div>
@@ -74,7 +74,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, dailyUsage
               {!isProUser && (
                 <button
                   onClick={onShowPricing}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-6 py-2 rounded-full shadow-lg hover:shadow-purple-500/25 transition-all duration-300 flex items-center gap-2"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 sm:px-6 py-2 rounded-full shadow-lg hover:shadow-purple-500/25 transition-all duration-300 flex items-center gap-2 text-sm sm:text-base"
                 >
                   <Crown className="w-4 h-4" />
                   Go Pro
@@ -95,7 +95,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, dailyUsage
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden mt-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10"
+            className="md:hidden mt-3 p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10"
           >
             <div className="flex flex-col space-y-4">
               <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 flex items-center gap-2 justify-center">
@@ -114,7 +114,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, dailyUsage
               {!isProUser && (
                 <button
                   onClick={onShowPricing}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-full shadow-lg flex items-center gap-2 justify-center"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-full shadow-lg flex items-center gap-2 justify-center py-2 text-sm sm:text-base"
                 >
                   <Crown className="w-4 h-4" />
                   Go Pro
