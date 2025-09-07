@@ -35,6 +35,21 @@ interface ComicStory {
   panels: ComicPanel[];
 }
 
+// ✅ UPDATED: Configuration for Nano Banana
+const CONFIG = {
+  MAX_RETRIES: 5,
+  BASE_DELAY: 3000,
+  EXPONENTIAL_BACKOFF: true,
+  MAX_DELAY: 30000,
+  MAX_PANELS: 6,
+  MIN_PANELS: 2,
+  GEMINI_MODELS: {
+    TEXT: 'gemini-1.5-flash',
+    IMAGE: 'gemini-2.5-flash-image-preview', // ✅ NANO BANANA MODEL
+  },
+  PANEL_GENERATION_DELAY: 5000,
+} as const;
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
@@ -52,18 +67,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Story idea is required' }, { status: 400 });
     }
 
-    // Step 1: Generate story structure
-    const storyStructure = await generateStoryStructure({
-      storyIdea,
-      characterName,
-      artStyle,
-      mood,
-      panels,
-      characterTraits,
-    });
+    if (panels < CONFIG.MIN_PANELS || panels > CONFIG.MAX_PANELS) {
+      return NextResponse.json(
+        { success: false, error: `Panel count must be between ${CONFIG.MIN_PANELS} and ${CONFIG.MAX_PANELS}` },
+        { status: 400 }
+      );
+    }
 
-    // Step 2: Generate panels with images
-    const comicPanels = await generatePanelsWithImages(storyStructure, panels);
+    console.log(`🚀 Starting comic generation with Nano Banana for "${storyIdea}"`);
+
+    // Step 1: Generate story structure
+    const storyStructure = await withExponentialBackoff(
+      () =>
+        generateStoryStructure({
+          storyIdea,
+          characterName,
+          artStyle,
+          mood,
+          panels,
+          characterTraits,
+        }),
+      'story structure'
+    );
+
+    // Step 2: Generate panels with Nano Banana images
+    const comicPanels = await generatePanelsWithNanoBanana(storyStructure, panels);
 
     const comic: ComicStory = {
       title: storyStructure.title,
@@ -73,14 +101,32 @@ export async function POST(request: NextRequest) {
     };
 
     const generationTime = Date.now() - startTime;
+    console.log(`✅ Comic generation completed with Nano Banana in ${generationTime}ms`);
 
     return NextResponse.json({
       success: true,
       comic,
       generationTime,
+      metadata: {
+        panelsGenerated: comicPanels.length,
+        imagesGenerated: comicPanels.filter((p) => p.imageUrl && !p.imageUrl.includes('placeholder')).length,
+        model: 'Nano Banana (Gemini 2.5 Flash Image Preview)',
+      },
     });
   } catch (error: any) {
-    console.error('Comic generation error:', error);
+    console.error('❌ Comic generation error:', error);
+
+    if (error.message.includes('429')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'API rate limit exceeded. Please wait a moment and try again.',
+          details: 'Too many requests - please try again in a few minutes.',
+        },
+        { status: 429 }
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
@@ -92,17 +138,51 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Clean markdown code blocks from API response
- * @param response - Raw response string
- * @returns Cleaned JSON string
- */
+// ✅ IMPROVED: Exponential backoff
+async function withExponentialBackoff<T>(fn: () => Promise<T>, operationName: string = 'API call'): Promise<T> {
+  let lastError: Error;
+
+  for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
+    try {
+      console.log(`📞 Attempting ${operationName} (${attempt}/${CONFIG.MAX_RETRIES})`);
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`⚠️ ${operationName} attempt ${attempt}/${CONFIG.MAX_RETRIES} failed:`, error.message);
+
+      if (attempt < CONFIG.MAX_RETRIES) {
+        let delay = CONFIG.BASE_DELAY * Math.pow(2, attempt - 1);
+        if (CONFIG.EXPONENTIAL_BACKOFF) {
+          delay = Math.min(delay + Math.random() * 1000, CONFIG.MAX_DELAY);
+        }
+
+        console.log(`⏳ Waiting ${delay}ms before retry...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError!;
+}
+
 function cleanJsonResponse(response: string): string {
   let cleaned = response.trim();
-  // Remove ``````
-  cleaned = cleaned.replace(/``````$/, '');
-  // Remove ``````
-  cleaned = cleaned.replace(/``````$/, '');
+
+  // Remove markdown code blocks - handle both ```json and ``` variants
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+  }
+
+  // Find the first '{' and last '}' to extract the JSON object
+  const jsonStart = cleaned.indexOf('{');
+  const jsonEnd = cleaned.lastIndexOf('}');
+
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+    cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+  }
+
   return cleaned;
 }
 
@@ -116,55 +196,65 @@ MOOD: ${input.mood}
 NUMBER OF PANELS: ${input.panels}
 CHARACTER TRAITS: ${input.characterTraits.join(', ') || 'determined, resourceful'}
 
-IMPORTANT: Respond with ONLY valid JSON, no markdown formatting, no code blocks, no additional text.
+IMPORTANT: This will be used with Nano Banana for image generation. Respond with ONLY valid JSON.
 Generate a JSON response with this exact structure:
 {
   "title": "Creative title for the comic",
   "character": {
     "name": "${input.characterName}",
-    "appearance": "Detailed physical description including clothing, hair, distinctive features",
+    "appearance": "DETAILED physical description for consistent AI image generation - include clothing, hair, facial features, body type, distinctive marks",
     "personality": "Key personality traits and mannerisms",
     "backstory": "Brief background that motivates their actions",
     "motivation": "What drives them in this specific story"
   },
   "arc": "Overall story progression and character development",
   "panelOutlines": [
-    {
-      "panelNumber": 1,
-      "purpose": "Story beat (setup/inciting incident/rising action/climax/resolution)",
-      "keyAction": "What happens in this panel",
-      "characterState": "Character's emotional/physical state",
-      "settingDescription": "Where this takes place",
+    ${Array.from(
+      { length: input.panels },
+      (_, i) => `{
+      "panelNumber": ${i + 1},
+      "purpose": "Story beat for panel ${i + 1}",
+      "keyAction": "Specific visual action happening in this panel",
+      "characterState": "Character's emotional/physical state for image generation",
+      "settingDescription": "DETAILED scene description for Nano Banana image generation",
       "transitionTo": "How this connects to next panel"
-    }
+    }`
+    ).join(',')}
   ]
 }`;
 
-  let response: string | undefined; 
+  const response = await callGemini(prompt, 0.8);
+  const cleanedResponse = cleanJsonResponse(response);
 
   try {
-    response = await callGemini(prompt, 0.8);
-
-    const cleanedResponse = cleanJsonResponse(response);
-
     const parsed = JSON.parse(cleanedResponse);
+
+    if (!parsed.title || !parsed.character || !parsed.panelOutlines || parsed.panelOutlines.length !== input.panels) {
+      throw new Error('Invalid story structure format');
+    }
+
+    console.log(`✅ Story structure generated: "${parsed.title}"`);
     return parsed;
   } catch (error) {
-    console.error('❌Failed to parse story structure:', error);
-    console.error('Raw response sample:', response?.substring(0, 500) || 'No response');
+    console.error('❌ Failed to parse story structure:', error);
     return createFallbackStructure(input);
   }
 }
 
-async function generatePanelsWithImages(storyStructure: any, panelCount: number) {
+// ✅ NEW: Generate panels with actual Nano Banana image generation
+async function generatePanelsWithNanoBanana(storyStructure: any, panelCount: number) {
   const panels: ComicPanel[] = [];
+
+  console.log(`🎨 Starting Nano Banana panel generation for ${panelCount} panels`);
 
   for (let i = 0; i < panelCount; i++) {
     const panelOutline = storyStructure.panelOutlines[i];
+    console.log(`🍌 Generating panel ${i + 1}/${panelCount} with Nano Banana...`);
 
     try {
-      // Generate panel text content
-      const panelPrompt = `Create detailed comic panel content for panel ${i + 1} of ${panelCount}.
+      // Generate panel content
+      const panelData = await withExponentialBackoff(async () => {
+        const panelPrompt = `Create detailed comic panel content for panel ${i + 1} of ${panelCount}.
 
 STORY CONTEXT:
 - Title: ${storyStructure.title}
@@ -174,85 +264,170 @@ STORY CONTEXT:
 - Action: ${panelOutline?.keyAction || 'story progression'}
 - Setting: ${panelOutline?.settingDescription || 'story scene'}
 
-IMPORTANT: Respond with ONLY valid JSON, no markdown formatting, no code blocks, no additional text.
-Generate JSON response:
+REQUIREMENTS: Create content for 45-60 second narration. Respond with ONLY valid JSON.
 {
-  "imageDescription": "Detailed visual description maintaining character consistency",
-  "dialogue": ["Character speech - max 2 lines"],
-  "narration": "Brief narrative text",
-  "characterEmotions": "Character's emotional state",
-  "sceneAction": "What's happening in this moment",
-  "visualElements": ["Key visual details", "composition notes"],
-  "continuityNotes": "Character consistency notes"
+  "imageDescription": "DETAILED comic panel description for Nano Banana: Character (${
+    storyStructure.character.appearance
+  }) doing ${panelOutline?.keyAction} in ${
+          panelOutline?.settingDescription
+        }. Include pose, expression, background details, lighting, comic book art style",
+  "dialogue": ["Character speech - 2-3 lines for natural conversation flow"],
+  "narration": "Rich narrative text of 2-3 sentences describing the scene for engaging 45-60 second voiceover",
+  "characterEmotions": "Detailed emotional state and facial expressions",
+  "sceneAction": "Comprehensive action description with visual details",
+  "visualElements": ["Specific lighting", "Background details", "Character positioning", "Comic style elements"],
+  "continuityNotes": "Notes for maintaining character consistency across panels"
 }`;
 
-      const panelResponse = await callGemini(panelPrompt, 0.7);
+        const response = await callGemini(panelPrompt, 0.7);
+        const cleaned = cleanJsonResponse(response);
+        return JSON.parse(cleaned);
+      }, `panel ${i + 1} content`);
 
-      const cleanedResponse = cleanJsonResponse(panelResponse);
-
-      let panelData: any;
-
-      try {
-        panelData = JSON.parse(cleanedResponse);
-      } catch (parseError) {
-        console.error(`Failed to parse panel ${i + 1}:`, parseError);
-        console.error(`Raw panel response sample:`, panelResponse.substring(0, 500));
-        panelData = createFallbackPanel(i + 1, panelOutline, storyStructure);
-      }
-
-      // Generate image (may not work without proper image model)
+      // ✅ NANO BANANA: Generate actual image with Gemini 2.5 Flash Image Preview
       let imageUrl = null;
       try {
-        const imagePrompt = `Generate a detailed comic panel image: ${panelData.imageDescription}
+        console.log(`🍌 Generating Nano Banana image for panel ${i + 1}...`);
 
-Character: ${storyStructure.character.name} - ${storyStructure.character.appearance}
-Style: ${storyStructure.title} comic book panel
-Setting: ${panelOutline?.settingDescription}
-Action: ${panelOutline?.keyAction}
+        const imagePrompt = `Generate a high-quality comic book panel illustration:
 
-Create a detailed visual representation in ${panelData.imageDescription}`;
+CHARACTER: ${storyStructure.character.name}
+APPEARANCE: ${storyStructure.character.appearance}
+SCENE: ${panelData.imageDescription}
+SETTING: ${panelOutline?.settingDescription}
+ACTION: ${panelOutline?.keyAction}
+MOOD: ${storyStructure.character.personality}
+STYLE: ${storyStructure.title} - professional comic book art style
 
-        const imageResponse = await callGeminiForImage(imagePrompt, 0.7);
+VISUAL REQUIREMENTS:
+- Comic book panel layout with clear composition
+- Consistent character design matching: ${storyStructure.character.appearance}
+- Dynamic ${panelOutline?.keyAction} action
+- ${panelData.visualElements?.join(', ')} visual elements
+- Panel ${i + 1} of ${panelCount} in sequence
 
-        // Try to extract base64 image data
-        const imageData = extractImageFromResponse(imageResponse);
+Create a detailed, high-quality comic panel that maintains character consistency and tells the story effectively.`;
+
+        const imageResponse = await callNanoBanana(imagePrompt, 0.7);
+        const imageData = extractImageFromNanoBananaResponse(imageResponse);
+
         if (imageData) {
           imageUrl = `data:image/png;base64,${imageData}`;
+          console.log(`✅ Nano Banana image generated for panel ${i + 1}`);
+        } else {
+          console.warn(`⚠️ Nano Banana image generation failed for panel ${i + 1}, using placeholder`);
+          imageUrl = `https://via.placeholder.com/600x400/7C3AED/FFFFFF?text=Panel+${i + 1}+-+${encodeURIComponent(
+            panelOutline?.purpose || 'Nano Banana'
+          )}`;
         }
       } catch (imageError) {
-        console.warn(`Image generation failed for panel ${i + 1}:`, imageError);
-        // Use placeholder
-        imageUrl = `https://via.placeholder.com/600x400/7C3AED/FFFFFF?text=Panel+${i + 1}`;
+        console.warn(`❌ Nano Banana image generation failed for panel ${i + 1}:`, imageError);
+        imageUrl = `https://via.placeholder.com/600x400/7C3AED/FFFFFF?text=Panel+${i + 1}+-+Nano+Banana`;
       }
 
       panels.push({
         id: i + 1,
-        imageDescription: panelData.imageDescription,
-        dialogue: panelData.dialogue || [],
-        narration: panelData.narration || '',
-        characterEmotions: panelData.characterEmotions || '',
-        sceneAction: panelData.sceneAction || '',
-        visualElements: panelData.visualElements || [],
-        continuityNotes: panelData.continuityNotes || '',
+        imageDescription: panelData.imageDescription || `Panel ${i + 1} visual description`,
+        dialogue: Array.isArray(panelData.dialogue) ? panelData.dialogue : [panelData.dialogue || ''],
+        narration: panelData.narration || `Panel ${i + 1} narration for 45-60 second voiceover`,
+        characterEmotions: panelData.characterEmotions || 'determined',
+        sceneAction: panelData.sceneAction || 'story progression',
+        visualElements: Array.isArray(panelData.visualElements) ? panelData.visualElements : [],
+        continuityNotes: panelData.continuityNotes || 'Character consistency maintained',
         imageUrl: imageUrl,
       });
 
-      // Rate limiting between panels
+      console.log(`✅ Panel ${i + 1} generated successfully with Nano Banana`);
+
+      // Wait between panels to respect rate limits
       if (i < panelCount - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        console.log(`⏳ Waiting ${CONFIG.PANEL_GENERATION_DELAY}ms before next Nano Banana generation...`);
+        await new Promise((resolve) => setTimeout(resolve, CONFIG.PANEL_GENERATION_DELAY));
       }
     } catch (error) {
-      console.error(`Error generating panel ${i + 1}:`, error);
+      console.error(`❌ Error generating panel ${i + 1}:`, error);
       panels.push(createFallbackPanel(i + 1, panelOutline, storyStructure));
     }
   }
 
+  console.log(`✅ All ${panels.length} panels generated with Nano Banana`);
   return panels;
 }
 
-async function callGemini(prompt: string, temperature: number = 0.7): Promise<string> {
+// ✅ NANO BANANA: Dedicated function for Gemini 2.5 Flash Image Preview
+async function callNanoBanana(prompt: string, temperature: number = 0.7): Promise<string> {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY environment variable is not set');
+  }
+
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODELS.IMAGE}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature,
+          topK: 32,
+          topP: 1,
+          maxOutputTokens: 4096,
+          responseModalities: ['TEXT', 'IMAGE'], // ✅ REQUIRED for Nano Banana
+          candidateCount: 1,
+        },
+        safetySettings: [
+          {
+            category: 'HARM_CATEGORY_HARASSMENT',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+          {
+            category: 'HARM_CATEGORY_HATE_SPEECH',
+            threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          },
+        ],
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`Nano Banana API error: ${response.status} - ${response.statusText}`, errorText);
+    throw new Error(`Nano Banana API error: ${response.status} - ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  return JSON.stringify(result);
+}
+
+// ✅ NANO BANANA: Extract image data from Nano Banana response
+function extractImageFromNanoBananaResponse(responseStr: string): string | null {
+  try {
+    const response = JSON.parse(responseStr);
+    const parts = response.candidates?.[0]?.content?.parts || [];
+
+    for (const part of parts) {
+      // Check for inline data (base64 image)
+      if (part.inlineData?.data) {
+        console.log('✅ Found Nano Banana image data');
+        return part.inlineData.data;
+      }
+    }
+
+    console.warn('⚠️ No image data found in Nano Banana response');
+    return null;
+  } catch (error) {
+    console.error('❌ Failed to extract image from Nano Banana response:', error);
+    return null;
+  }
+}
+
+async function callGemini(prompt: string, temperature: number = 0.7): Promise<string> {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error('GEMINI_API_KEY environment variable is not set');
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODELS.TEXT}:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -284,77 +459,26 @@ async function callGemini(prompt: string, temperature: number = 0.7): Promise<st
   return result.candidates[0].content.parts[0].text;
 }
 
-async function callGeminiForImage(prompt: string, temperature: number = 0.7): Promise<string> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature,
-          topK: 32,
-          topP: 1,
-          maxOutputTokens: 4096,
-        },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`Gemini Image API error: ${response.status} - ${response.statusText}`, errorText);
-    throw new Error(`Gemini Image API error: ${response.status} - ${response.statusText}`);
-  }
-
-  const result = await response.json();
-
-  if (!result.candidates?.[0]?.content?.parts) {
-    console.error('Invalid Gemini Image response structure:', result);
-    throw new Error('No content generated by Gemini Image API');
-  }
-
-  return JSON.stringify(result);
-}
-
-function extractImageFromResponse(responseStr: string): string | null {
-  try {
-    const response = JSON.parse(responseStr);
-    const parts = response.candidates?.[0]?.content?.parts || [];
-
-    for (const part of parts) {
-      if (part.inlineData?.data) {
-        return part.inlineData.data;
-      }
-    }
-  } catch (error) {
-    console.error('Failed to extract image from response:', error);
-  }
-
-  return null;
-}
-
 function createFallbackStructure(input: Required<ComicRequest>) {
+  console.log('⚠️ Using fallback story structure');
   const panelOutlines = [];
 
   for (let i = 0; i < input.panels; i++) {
-    const storyProgress = i / (input.panels - 1);
-
+    const storyProgress = i / Math.max(input.panels - 1, 1);
     let purpose, keyAction, characterState;
 
-    if (storyProgress < 0.3) {
+    if (storyProgress <= 0.25) {
       purpose = 'Setup/Introduction';
-      keyAction = `Introduce ${input.characterName} and the world of ${input.storyIdea}`;
-      characterState = 'curious, unaware of coming adventure';
-    } else if (storyProgress < 0.7) {
-      purpose = 'Rising Action';
-      keyAction = `${input.characterName} encounters challenges from ${input.storyIdea}`;
-      characterState = 'determined, facing obstacles';
+      keyAction = `Introduce ${input.characterName} and establish the world of ${input.storyIdea}`;
+      characterState = 'curious and ready for adventure';
+    } else if (storyProgress <= 0.75) {
+      purpose = 'Rising Action/Challenge';
+      keyAction = `${input.characterName} faces obstacles related to ${input.storyIdea}`;
+      characterState = 'determined but challenged';
     } else {
       purpose = 'Climax/Resolution';
-      keyAction = `${input.characterName} overcomes challenges and finds resolution`;
-      characterState = 'triumphant, transformed';
+      keyAction = `${input.characterName} overcomes challenges and achieves their goal`;
+      characterState = 'triumphant and transformed';
     }
 
     panelOutlines.push({
@@ -362,36 +486,51 @@ function createFallbackStructure(input: Required<ComicRequest>) {
       purpose,
       keyAction,
       characterState,
-      settingDescription: `Setting for ${input.storyIdea}`,
-      transitionTo: i < input.panels - 1 ? 'Continues to next panel' : 'Story concludes',
+      settingDescription: `A ${input.mood} setting appropriate for ${input.storyIdea} with detailed visual elements for Nano Banana generation`,
+      transitionTo: i < input.panels - 1 ? 'Builds toward next panel' : 'Story concludes',
     });
   }
 
   return {
-    title: `${input.characterName}'s ${input.mood} Adventure`,
+    title: `${input.characterName} and the ${input.storyIdea
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')}`,
     character: {
       name: input.characterName,
-      appearance: `${input.characterName} has distinctive features that remain consistent across all panels`,
-      personality: `Brave and ${input.characterTraits.join(', ') || 'determined'}`,
-      backstory: 'A hero ready for adventure',
-      motivation: `To succeed in ${input.storyIdea}`,
+      appearance: `${input.characterName} has distinctive features for consistent Nano Banana generation: specific hair color and style, facial features, clothing style, body type, and unique characteristics that remain constant across all panels`,
+      personality:
+        input.characterTraits.length > 0 ? input.characterTraits.join(', ') : 'brave, determined, resourceful',
+      backstory: `A hero ready for the ${input.storyIdea} adventure`,
+      motivation: `To successfully complete their quest`,
     },
-    arc: `A ${input.mood} journey where ${input.characterName} grows through challenges`,
+    arc: `A ${input.mood} journey of growth and triumph`,
     panelOutlines,
   };
 }
 
 function createFallbackPanel(panelId: number, outline: any, storyStructure: any): ComicPanel {
+  console.log(`⚠️ Using fallback for panel ${panelId}`);
   return {
     id: panelId,
-    imageDescription: `Panel ${panelId}: ${storyStructure.character.name} in ${
-      outline?.settingDescription || 'the scene'
+    imageDescription: `Panel ${panelId}: ${storyStructure.character.name} (detailed appearance: ${
+      storyStructure.character.appearance
+    }) ${outline?.keyAction || 'continues the adventure'} in ${
+      outline?.settingDescription || 'an engaging scene for Nano Banana generation'
     }`,
-    dialogue: [`Panel ${panelId} dialogue`],
-    narration: outline?.keyAction || `Story continues in panel ${panelId}`,
-    characterEmotions: outline?.characterState || 'determined',
-    sceneAction: outline?.keyAction || 'story progression',
-    visualElements: ['consistent character design', 'engaging composition'],
-    continuityNotes: 'Maintains character consistency',
+    dialogue: [`"${outline?.keyAction || `This is panel ${panelId} of our Nano Banana comic story`}."`],
+    narration:
+      outline?.keyAction ||
+      `The adventure continues as our hero faces new challenges in this exciting panel of the story, providing rich content for 45-60 seconds of engaging narration.`,
+    characterEmotions: outline?.characterState || 'determined and focused',
+    sceneAction: outline?.keyAction || 'story progression with character development',
+    visualElements: [
+      'consistent character design',
+      'engaging composition',
+      'dramatic lighting',
+      'Nano Banana comic style',
+    ],
+    continuityNotes: `Maintains ${storyStructure.character.name}'s consistent appearance for Nano Banana: ${storyStructure.character.appearance}`,
+    imageUrl: `https://via.placeholder.com/600x400/7C3AED/FFFFFF?text=Panel+${panelId}+-+Nano+Banana`,
   };
 }

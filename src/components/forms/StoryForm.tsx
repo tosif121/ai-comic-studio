@@ -112,7 +112,6 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
 
         // Generate narration if requested
         if (formData.generateNarration) {
-          toast.loading('Adding voice narration...');
           try {
             const narrationPromises = result.comic.panels.map((panel: any) =>
               axios.post('/api/generate-narration', {
@@ -122,6 +121,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
             );
 
             const narrationResults = await Promise.all(narrationPromises);
+            toast.loading('Adding voice narration...');
 
             // Add audio to panels
             result.comic.panels = result.comic.panels.map((panel: any, index: number) => ({
