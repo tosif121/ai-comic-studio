@@ -835,7 +835,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother }) => 
                 className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-2xl shadow-lg hover:shadow-purple-500/25 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isDownloading ? <Loader className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                <span>Download Story (Coming Soon)</span>
+                <span>Download Story</span>
               </motion.button>
 
               {/* Share Button */}
