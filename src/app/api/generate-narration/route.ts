@@ -1,9 +1,9 @@
-// utils/narrationClient.ts
-// Client-side narration generation - users provide their own API keys
+// app/api/generate-narration/route.ts
+import { NextRequest, NextResponse } from 'next/server';
 
 export interface NarrationRequest {
   text: string;
-  apiKey: string; // User provides their own key
+  apiKey: string;
   voiceId?: string;
   speed?: number;
   stability?: number;
@@ -57,51 +57,29 @@ const VOICE_PRESETS = {
   },
 };
 
-/**
- * Generate narration directly from the client using user's API key
- */
-export async function generateNarration({
-  text,
-  apiKey,
-  voiceId,
-  speed = 1.0,
-  stability,
-  similarityBoost,
-  style,
-  modelId = 'eleven_multilingual_v2',
-  voiceType = 'narrative',
-  language = 'en',
-}: NarrationRequest): Promise<NarrationResponse> {
+export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // Validation
-    if (!text || text.trim().length === 0) {
-      return {
-        success: false,
-        error: 'Text is required for narration',
-      };
-    }
+    const {
+      text,
+      apiKey,
+      voiceId,
+      speed = 1.0,
+      stability,
+      similarityBoost,
+      style,
+      modelId = 'eleven_multilingual_v2',
+      voiceType = 'narrative',
+      language = 'en',
+    }: NarrationRequest = await request.json();
 
-    if (text.length > 5000) {
-      return {
-        success: false,
-        error: 'Text too long. Maximum 5000 characters allowed.',
-      };
-    }
+    if (!text?.trim()) return NextResponse.json({ success: false, error: 'Text is required' }, { status: 400 });
+    if (!apiKey?.trim()) return NextResponse.json({ success: false, error: 'API key is required' }, { status: 400 });
 
-    if (!apiKey || apiKey.trim().length === 0) {
-      return {
-        success: false,
-        error: 'ElevenLabs API key is required',
-      };
-    }
-
-    // Get voice configuration
     const voiceConfig = VOICE_PRESETS[voiceType] || VOICE_PRESETS.narrative;
     const finalVoiceId = voiceId || voiceConfig.voiceId;
 
-    // Prepare voice settings with fallbacks
     const voiceSettings = {
       stability: stability ?? voiceConfig.stability,
       similarity_boost: similarityBoost ?? voiceConfig.similarity_boost,
@@ -109,10 +87,9 @@ export async function generateNarration({
       use_speaker_boost: true,
     };
 
-    // Optimize text for speech
     const optimizedText = optimizeTextForSpeech(text);
 
-    // Make request to ElevenLabs directly from client
+    // Call ElevenLabs API with user's key
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${finalVoiceId}`, {
       method: 'POST',
       headers: {
@@ -130,58 +107,31 @@ export async function generateNarration({
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('ElevenLabs API Error:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText,
-      });
-
-      // Handle specific error cases
-      if (response.status === 401) {
-        return {
-          success: false,
-          error: 'Invalid API key or insufficient credits',
-        };
-      }
-
-      if (response.status === 400) {
-        return {
-          success: false,
-          error: 'Invalid request parameters',
-          details: errorText,
-        };
-      }
-
-      return {
-        success: false,
-        error: `ElevenLabs API failed: ${response.status}`,
-        details: errorText,
-      };
+      return NextResponse.json(
+        { success: false, error: `ElevenLabs API failed`, details: errorText },
+        { status: response.status }
+      );
     }
 
-    // Process audio response
     const audioArrayBuffer = await response.arrayBuffer();
-    const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/mpeg' });
-    const audioUrl = URL.createObjectURL(audioBlob);
-
-    // Calculate estimated duration
+    const audioBase64 = Buffer.from(audioArrayBuffer).toString('base64');
+    const audioDataUrl = `data:audio/mpeg;base64,${audioBase64}`;
     const estimatedDuration = calculateAudioDuration(optimizedText, speed);
 
-    return {
+    return NextResponse.json({
       success: true,
-      audioUrl,
-      duration: estimatedDuration * 1000, // Convert to milliseconds
+      audioUrl: audioDataUrl,
+      duration: estimatedDuration * 1000,
       characterCount: optimizedText.length,
       estimatedTokens: Math.ceil(optimizedText.length / 4),
       voiceUsed: `${voiceConfig.description} (${finalVoiceId})`,
-    };
+    });
   } catch (error: any) {
     console.error('Narration generation error:', error);
-    return {
-      success: false,
-      error: 'Failed to generate narration',
-      details: error.message,
-    };
+    return NextResponse.json(
+      { success: false, error: 'Failed to generate narration', details: error.message },
+      { status: 500 }
+    );
   }
 }
 
@@ -189,51 +139,97 @@ export async function generateNarration({
  * Optimize text for better speech synthesis
  */
 function optimizeTextForSpeech(text: string): string {
-  return text
-    .replace(/\bDr\./g, 'Doctor')
-    .replace(/\bMr\./g, 'Mister')
-    .replace(/\bMrs\./g, 'Missus')
-    .replace(/\bMs\./g, 'Miss')
-    .replace(/\betc\./g, 'et cetera')
-    .replace(/\be\.g\./g, 'for example')
-    .replace(/\bi\.e\./g, 'that is')
-    .replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, '$2/$1/$3')
-    .replace(/\$(\d+)/g, '$1 dollars')
-    .replace(/(\d+)%/g, '$1 percent')
-    .replace(/\.\.\./g, '... pause ...')
-    .replace(/--/g, ' - ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    text
+      // Replace common abbreviations
+      .replace(/\bDr\./g, 'Doctor')
+      .replace(/\bMr\./g, 'Mister')
+      .replace(/\bMrs\./g, 'Missus')
+      .replace(/\bMs\./g, 'Miss')
+      .replace(/\betc\./g, 'et cetera')
+      .replace(/\be\.g\./g, 'for example')
+      .replace(/\bi\.e\./g, 'that is')
+
+      // Handle numbers and dates
+      .replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, '$2/$1/$3') // MM/DD/YYYY to DD/MM/YYYY for clarity
+      .replace(/\$(\d+)/g, '$1 dollars')
+      .replace(/(\d+)%/g, '$1 percent')
+
+      // Improve punctuation for speech
+      .replace(/\.\.\./g, '... pause ...')
+      .replace(/--/g, ' - ')
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim()
+  );
 }
 
 /**
- * Calculate estimated audio duration
+ * Calculate estimated audio duration based on text length and speed
  */
 function calculateAudioDuration(text: string, speed: number = 1.0): number {
+  // Average speaking rate is ~150 words per minute
+  // Adjust for speed multiplier
   const wordsPerMinute = 150 * speed;
   const wordCount = text.split(/\s+/).length;
   const durationMinutes = wordCount / wordsPerMinute;
-  return Math.ceil(durationMinutes * 60);
+  return Math.ceil(durationMinutes * 60); // Return seconds, rounded up
 }
 
 /**
- * Get available voice presets
+ * GET endpoint to retrieve available voices and their configurations
  */
-export function getVoicePresets() {
-  return Object.entries(VOICE_PRESETS).map(([type, config]) => ({
-    type,
-    voiceId: config.voiceId,
-    description: config.description,
-    settings: {
-      stability: config.stability,
-      similarity_boost: config.similarity_boost,
-      style: config.style,
-    },
-  }));
+export async function GET(request: NextRequest) {
+  try {
+    // Return available voice presets and their descriptions
+    const voiceInfo = Object.entries(VOICE_PRESETS).map(([type, config]) => ({
+      type,
+      voiceId: config.voiceId,
+      description: config.description,
+      settings: {
+        stability: config.stability,
+        similarity_boost: config.similarity_boost,
+        style: config.style,
+      },
+    }));
+
+    return NextResponse.json({
+      success: true,
+      availableVoices: voiceInfo,
+      supportedLanguages: [
+        'en',
+        'es',
+        'fr',
+        'de',
+        'it',
+        'pt',
+        'pl',
+        'tr',
+        'ru',
+        'nl',
+        'cs',
+        'ar',
+        'zh',
+        'ja',
+        'hi',
+        'ko',
+      ],
+      maxCharacters: 5000,
+      supportedModels: ['eleven_multilingual_v2', 'eleven_monolingual_v1', 'eleven_multilingual_v1'],
+    });
+  } catch (error: any) {
+    console.error('Error retrieving voice info:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to retrieve voice information',
+      },
+      { status: 500 }
+    );
+  }
 }
 
 /**
- * Split long text into chunks for processing
+ * Utility function to split long text into chunks for processing
  */
 export function splitTextIntoChunks(text: string, maxChunkSize: number = 4500): string[] {
   if (text.length <= maxChunkSize) {
@@ -263,32 +259,4 @@ export function splitTextIntoChunks(text: string, maxChunkSize: number = 4500): 
   }
 
   return chunks;
-}
-
-/**
- * Fetch available voices from ElevenLabs API
- */
-export async function fetchAvailableVoices(apiKey: string) {
-  try {
-    const response = await fetch('https://api.elevenlabs.io/v1/voices', {
-      headers: {
-        'xi-api-key': apiKey,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch voices');
-    }
-
-    const data = await response.json();
-    return {
-      success: true,
-      voices: data.voices,
-    };
-  } catch (error: any) {
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
 }
