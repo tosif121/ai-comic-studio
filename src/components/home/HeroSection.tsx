@@ -75,7 +75,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onCreateComic }) => {
           transition={{ delay: 0.6 }}
           className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed mb-12 px-4"
         >
-          Create stunning comics with consistent characters in under 60 seconds. Just speak your idea and watch AI bring it to life with cinematic quality.
+          Create stunning comics with consistent characters in under 60 seconds. Just speak your idea and watch AI bring
+          it to life with cinematic quality.
         </motion.p>
 
         <motion.div
@@ -101,15 +102,17 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onCreateComic }) => {
             </span>
           </motion.button>
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="w-full sm:w-auto border-2 border-white/30 text-white hover:bg-white/10 hover:border-white/50 text-lg px-10 py-6 rounded-2xl backdrop-blur-sm transition-all duration-300 group focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-black"
-            aria-label="Watch Demo"
-          >
-            <Play className="w-5 h-5 mr-2 inline group-hover:scale-110 transition-transform" />
-            Watch Demo
-          </motion.button>
+          <a href={'https://www.youtube.com/watch?v=zAqjDv_2J34'} target="_blank" rel="noopener noreferrer">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto border-2 border-white/30 text-white hover:bg-white/10 hover:border-white/50 text-lg px-10 py-6 rounded-2xl backdrop-blur-sm transition-all duration-300 group focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-black"
+              aria-label="Watch Demo"
+            >
+              <Play className="w-5 h-5 mr-2 inline group-hover:scale-110 transition-transform" />
+              Watch Demo
+            </motion.button>
+          </a>
         </motion.div>
       </div>
     </section>
