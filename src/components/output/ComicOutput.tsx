@@ -31,6 +31,7 @@ import {
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import Image from 'next/image';
+import { getElevenLabsKey } from '@/utils/apiKeys';
 
 interface ComicPanel {
   imageUrl: any;
@@ -68,11 +69,9 @@ interface Comic {
 interface ComicOutputProps {
   comic: Comic;
   onCreateAnother: () => void;
-  isProUser: boolean;
-  onUpgrade: () => void;
 }
 
-const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isProUser, onUpgrade }) => {
+const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother }) => {
   const [currentPanel, setCurrentPanel] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
@@ -152,6 +151,14 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
   };
 
   const addVoiceNarration = async () => {
+    // Get ElevenLabs API key
+    const elevenLabsKey = getElevenLabsKey();
+
+    if (!elevenLabsKey) {
+      toast.error('Please set your ElevenLabs API key in settings!');
+      return;
+    }
+
     setIsGeneratingNarration(true);
     let loadingToast = toast.loading('Starting voice narration generation...');
 
@@ -176,11 +183,12 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
             '/api/generate-narration',
             {
               text,
+              apiKey: elevenLabsKey, // Pass ElevenLabs API key
               voiceType: 'narrative',
               speed: 1.0,
             },
             {
-              timeout: 30000, // 30 second timeout
+              timeout: 30000,
             }
           );
 
@@ -210,7 +218,6 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
             loadingToast = toast.loading('Rate limited - waiting 5 seconds...');
             await new Promise((resolve) => setTimeout(resolve, 5000));
           } else {
-            // Wait 1 second before next attempt for other errors
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
@@ -221,8 +228,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
       toast.dismiss(loadingToast);
 
       if (successCount > 0) {
-        toast.success(`🎵 Voice narration added to ${successCount} of ${panels.length} panels!`);
-        // Force re-render by updating state
+        toast.success(`Voice narration added to ${successCount} of ${panels.length} panels!`);
         setCurrentPanel((prev) => prev);
       } else {
         toast.error('Failed to generate any narration. Please try again.');
@@ -235,14 +241,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
       setIsGeneratingNarration(false);
     }
   };
-
   const handleDownload = async () => {
-    if (!isProUser) {
-      toast.error('Download feature requires Pro subscription');
-      onUpgrade();
-      return;
-    }
-
     setIsDownloading(true);
     const loadingToast = toast.loading('Generating PDF download...');
 
@@ -299,11 +298,6 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
   };
 
   const generateVideo = async () => {
-    if (!isProUser) {
-      onUpgrade();
-      return;
-    }
-
     setIsGeneratingVideo(true);
     try {
       const response = await axios.post('/api/generate-video', {
@@ -411,22 +405,6 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
     setIsFullscreen(!isFullscreen);
   };
 
-  const regeneratePanel = async (panelIndex: number) => {
-    if (!isProUser) {
-      onUpgrade();
-      return;
-    }
-
-    toast.loading('Regenerating panel...');
-    try {
-      // This would call your API to regenerate a specific panel
-      // Implementation depends on your backend capabilities
-      toast.success('Panel regenerated!');
-    } catch (error) {
-      toast.error('Failed to regenerate panel');
-    }
-  };
-
   const renderPanelContent = (panel: ComicPanel, index: number) => (
     <motion.div
       key={`panel-${index}`}
@@ -443,14 +421,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
       {/* Panel Image or Placeholder */}
       {panel?.imageUrl ? (
         <div className="relative w-full h-full">
-          <Image
-            src={panel.imageUrl}
-            alt={`Panel ${index + 1}`}
-            fill
-            className="object-cover"
-            unoptimized
-            onError={() => console.error('Image failed to load')}
-          />
+          <Image src={panel.imageUrl} alt={`Panel ${index + 1}`} fill className="object-cover" unoptimized />
         </div>
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-600/20 to-pink-600/20">
@@ -495,14 +466,6 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
 
       {/* Panel Controls - Top Right */}
       <div className="absolute top-2 sm:top-4 right-2 sm:right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
-        {isProUser && (
-          <button
-            onClick={() => regeneratePanel(index)}
-            className="w-7 h-7 sm:w-8 sm:h-8 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/80 transition-all"
-          >
-            <RefreshCw className="w-4 h-4 text-white" />
-          </button>
-        )}
         <button
           onClick={toggleFullscreen}
           className="w-7 h-7 sm:w-8 sm:h-8 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-black/80 transition-all"
@@ -832,14 +795,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
                   ) : (
                     <Volume2 className="w-5 h-5" />
                   )}
-                  <span>
-                    {isGeneratingNarration
-                      ? 'Adding Voice...'
-                      : !isProUser
-                      ? 'Add Voice Narration (Pro)'
-                      : 'Add Voice Narration'}
-                  </span>
-                  {!isProUser && <Crown className="w-4 h-4 text-yellow-400" />}
+                  <span>Voice Narration (Coming Soon)</span>
                 </motion.button>
               )}
 
@@ -861,16 +817,13 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
               {!videoUrl && (
                 <motion.button
                   onClick={generateVideo}
-                  disabled={isGeneratingVideo}
+                  disabled
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="flex items-center space-x-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white px-6 py-3 rounded-2xl shadow-lg hover:shadow-red-500/25 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center space-x-2 bg-gradient-to-r from-red-600 to-pink-600 text-white px-6 py-3 rounded-2xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isGeneratingVideo ? <Loader className="w-5 h-5 animate-spin" /> : <Video className="w-5 h-5" />}
-                  <span>
-                    {isGeneratingVideo ? 'Creating Video...' : !isProUser ? 'Generate Video (Pro)' : 'Generate Video'}
-                  </span>
-                  {!isProUser && <Crown className="w-4 h-4 text-yellow-400" />}
+                  <Video className="w-5 h-5" />
+                  <span>Generate Video (Coming Soon)</span>
                 </motion.button>
               )}
 
@@ -882,8 +835,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
                 className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-2xl shadow-lg hover:shadow-purple-500/25 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isDownloading ? <Loader className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                <span>{isDownloading ? 'Downloading...' : !isProUser ? 'Download Story (Pro)' : 'Download Story'}</span>
-                {!isProUser && <Crown className="w-4 h-4 text-yellow-400" />}
+                <span>Download Story (Coming Soon)</span>
               </motion.button>
 
               {/* Share Button */}
@@ -980,21 +932,6 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother, isPro
               ))}
             </div>
           </div>
-
-          {/* Pro Upgrade CTA */}
-          {!isProUser && (
-            <div className="flex justify-center my-8">
-              <button
-                onClick={onUpgrade}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700
-                  text-white font-semibold px-6 py-3 rounded-2xl shadow-lg hover:shadow-purple-500/25
-                  transition-all duration-300 hover:scale-105 flex items-center"
-              >
-                <span className="mr-2">Upgrade to Pro</span>
-                <Crown className="w-4 h-4 text-yellow-400" />
-              </button>
-            </div>
-          )}
         </motion.div>
 
         {/* Hidden Audio Element */}

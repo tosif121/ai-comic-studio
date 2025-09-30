@@ -2,17 +2,15 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Palette, Sparkles, Crown, Menu, X } from 'lucide-react';
+import { Palette, Sparkles, Menu, X, Key } from 'lucide-react';
 
 interface HeaderProps {
   currentView: string;
   setCurrentView: (view: string) => void;
-  dailyUsage: number;
-  isProUser: boolean;
-  onShowPricing: () => void;
+  onShowApiKey: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, dailyUsage, isProUser, onShowPricing }) => {
+const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, onShowApiKey }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -53,34 +51,13 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, dailyUsage
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-6">
-            <div className="flex items-center space-x-4">
-              <motion.div
-                className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 flex items-center gap-2"
-                whileHover={{ scale: 1.05 }}
-              >
-                {isProUser ? (
-                  <>
-                    <Crown className="w-4 h-4 text-yellow-400" />
-                    <span className="text-sm font-medium text-white">Pro</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                    <span className="text-sm font-medium text-white">{dailyUsage}/100 Free</span>
-                  </>
-                )}
-              </motion.div>
-
-              {!isProUser && (
-                <button
-                  onClick={onShowPricing}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 sm:px-6 py-2 rounded-full shadow-lg hover:shadow-purple-500/25 transition-all duration-300 flex items-center gap-2 text-sm sm:text-base"
-                >
-                  <Crown className="w-4 h-4" />
-                  Go Pro
-                </button>
-              )}
-            </div>
+            <button
+              onClick={onShowApiKey}
+              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold px-4 sm:px-6 py-2 rounded-full shadow-lg hover:shadow-purple-500/25 transition-all duration-300 flex items-center gap-2 text-sm sm:text-base"
+            >
+              <Key className="w-4 h-4" />
+              API Key
+            </button>
           </div>
 
           {/* Mobile Menu button */}
@@ -98,28 +75,13 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, dailyUsage
             className="md:hidden mt-3 p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10"
           >
             <div className="flex flex-col space-y-4">
-              <div className="px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 flex items-center gap-2 justify-center">
-                {isProUser ? (
-                  <>
-                    <Crown className="w-4 h-4 text-yellow-400" />
-                    <span className="text-sm font-medium text-white">Pro</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                    <span className="text-sm font-medium text-white">{dailyUsage}/100 Free</span>
-                  </>
-                )}
-              </div>
-              {!isProUser && (
-                <button
-                  onClick={onShowPricing}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-full shadow-lg flex items-center gap-2 justify-center py-2 text-sm sm:text-base"
-                >
-                  <Crown className="w-4 h-4" />
-                  Go Pro
-                </button>
-              )}
+              <button
+                onClick={onShowApiKey}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-full shadow-lg flex items-center gap-2 justify-center py-2 text-sm sm:text-base"
+              >
+                <Key className="w-4 h-4" />
+                API Key
+              </button>
             </div>
           </motion.div>
         )}

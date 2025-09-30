@@ -76,15 +76,8 @@ npm install
 yarn install
 ```
 
-4. Environment Setup
-Create `.env.local` in root directory:
-```bash
-GEMINI_API_KEY=your_gemini_api_key_here
-ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
-````
 
-
-4. Start the development server:
+3. Start the development server:
 ```bash
 npm run dev
 # or

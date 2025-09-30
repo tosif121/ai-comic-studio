@@ -25,8 +25,7 @@ const viewVariants: Variants = {
 };
 
 export default function Home() {
-  const { currentView, setCurrentView, dailyUsage, setDailyUsage, isProUser, setShowPricingModal } =
-    useContext(AppContext);
+  const { currentView, setCurrentView } = useContext(AppContext);
 
   const [generatedComic, setGeneratedComic] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +35,6 @@ export default function Home() {
     setTimeout(() => {
       setGeneratedComic(comic);
       setCurrentView('output');
-      setDailyUsage((prev) => prev + 1);
       setIsLoading(false);
     }, 500);
   };
@@ -48,18 +46,6 @@ export default function Home() {
       setCurrentView('form');
       setIsLoading(false);
     }, 300);
-  };
-
-  const handleUpgrade = () => {
-    setShowPricingModal(true);
-  };
-
-  const checkUsageLimit = () => {
-    if (!isProUser && dailyUsage >= 2) {
-      setShowPricingModal(true);
-      return false;
-    }
-    return true;
   };
 
   return (
@@ -85,13 +71,7 @@ export default function Home() {
       {/* Views */}
       <AnimatePresence mode="wait">
         {currentView === 'home' && (
-          <motion.div
-            key="home"
-            variants={viewVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-          >
+          <motion.div key="home" variants={viewVariants} initial="hidden" animate="visible" exit="exit">
             <HeroSection onCreateComic={() => setCurrentView('form')} />
             <FeatureCards />
             <ProcessSection />
@@ -101,24 +81,13 @@ export default function Home() {
 
         {currentView === 'form' && (
           <motion.div key="form" variants={viewVariants} initial="hidden" animate="visible" exit="exit">
-            <StoryForm onStoryGenerated={handleComicGenerated} canGenerate={checkUsageLimit} />
+            <StoryForm onStoryGenerated={handleComicGenerated} />
           </motion.div>
         )}
 
         {currentView === 'output' && generatedComic && (
-          <motion.div
-            key="output"
-            variants={viewVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-          >
-            <ComicOutput
-              comic={generatedComic}
-              onCreateAnother={handleCreateAnother}
-              isProUser={isProUser}
-              onUpgrade={handleUpgrade}
-            />
+          <motion.div key="output" variants={viewVariants} initial="hidden" animate="visible" exit="exit">
+            <ComicOutput comic={generatedComic} onCreateAnother={handleCreateAnother} />
           </motion.div>
         )}
       </AnimatePresence>

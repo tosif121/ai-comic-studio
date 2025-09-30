@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import { getGeminiKey } from '@/utils/apiKeys';
 
 interface StoryFormData {
   storyIdea: string;
@@ -41,10 +42,9 @@ interface StoryFormData {
 
 interface StoryFormProps {
   onStoryGenerated: (story: any) => void;
-  canGenerate: () => boolean;
 }
 
-const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) => {
+const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated }) => {
   const [formData, setFormData] = useState<StoryFormData>({
     storyIdea: '',
     characterName: '',
@@ -78,8 +78,10 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
   };
 
   const generateStory = async () => {
-    if (!canGenerate() || !formData.storyIdea.trim()) {
-      toast.error('Please enter a story idea first!');
+    // Get Gemini API key
+    const geminiApiKey = getGeminiKey();
+    if (!geminiApiKey) {
+      toast.error('Please set your Gemini API key in settings!');
       return;
     }
 
@@ -91,6 +93,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
         '/api/generate-comic',
         {
           storyIdea: formData.storyIdea,
+          geminiApiKey: geminiApiKey, // Pass Gemini API key
           characterName: formData.characterName || 'Hero',
           artStyle: formData.artStyle,
           mood: formData.mood,
@@ -98,7 +101,7 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
           characterTraits: formData.characterTraits,
         },
         {
-          timeout: 120000, // 2 minutes for complex stories
+          timeout: 120000,
           headers: {
             'Content-Type': 'application/json',
           },
@@ -121,7 +124,6 @@ const StoryForm: React.FC<StoryFormProps> = ({ onStoryGenerated, canGenerate }) 
             );
 
             const narrationResults = await Promise.all(narrationPromises);
-            // toast.loading('Adding voice narration...');
 
             // Add audio to panels
             result.comic.panels = result.comic.panels.map((panel: any, index: number) => ({
