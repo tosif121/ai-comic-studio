@@ -795,7 +795,7 @@ const ComicOutput: React.FC<ComicOutputProps> = ({ comic, onCreateAnother }) => 
                   ) : (
                     <Volume2 className="w-5 h-5" />
                   )}
-                  <span>Voice Narration (Coming Soon)</span>
+                  <span>Voice Narration</span>
                 </motion.button>
               )}
 
